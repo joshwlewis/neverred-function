@@ -1,0 +1,23 @@
+{
+  "name": "neverred-function",
+  "version": "0.0.1",
+  "description": "",
+  "main": "./dst/index.js",
+  "scripts": {
+    "compile": "tsc -p .",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "prepare": "npm run compile",
+    "pretest": "npm run compile"
+  },
+  "author": "Josh W Lewis",
+  "license": "ISC",
+  "dependencies": {
+    "@salesforce/core": "^2.2.0",
+    "@salesforce/salesforce-sdk": "^1.1.2",
+    "cloudevents-sdk": "^1.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^13.11.1",
+    "typescript": "^3.8.3"
+  }
+}
