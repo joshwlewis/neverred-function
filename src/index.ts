@@ -25,7 +25,7 @@ const { DEBUG } = process.env;
    *
    * @param target -- The function to handle an event.
    */
-export function invoke(target: Function): void {
+export function invoke(targetFn: Function): void {
   const server = http.createServer((req, res) => {
     const reqId = [].concat(req.headers['x-ce-id'], req.headers['x-request-id']).join(',');
     const logger = createLogger(reqId);
@@ -40,7 +40,7 @@ export function invoke(target: Function): void {
     req.on('data', chunk => { body.push(chunk) });
     req.on('end', () => {
       try {
-        const event = parseCloudevent(body, req.headers);
+        const event = parseCloudevent(body.join(), req.headers);
         let data, accessToken, invocationId;
         if (event) {
           data = event.getData();
@@ -51,11 +51,11 @@ export function invoke(target: Function): void {
         }
         const context = createContext(reqId, logger, secrets, accessToken, invocationId)
 
-        const result = target.call(event, logger, context);
+        const result = targetFn(data, context, logger);
         if (result) { res.write(result); }
         res.end();
-      } catch(e) {
-        logger.error(e);
+      } catch(error) {
+        logger.error({error});
         res.writeHead(500);
         res.end();
       }
