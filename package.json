@@ -1,6 +1,6 @@
 {
   "name": "neverred-function",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "A simple http server to invoke functions",
   "repository": "https://github.com/joshwlewis/neverred-function",
   "main": "./dst/index.js",
