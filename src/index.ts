@@ -18,7 +18,7 @@ import {
     User,
 } from '@salesforce/salesforce-sdk';
 
-const { DEBUG } = process.env;
+const { DEBUG, SECRETS_PATH} = process.env;
 
   /**
    * Start an HTTP server that invokes the target function with an event.
@@ -45,7 +45,7 @@ export function invoke(targetFn: Function): void {
       const data = cEvent.getData();
       const reqId = [].concat(cEvent.getId(), req.headers['x-request-id']).join(',');
       const logger = createLogger(reqId);
-      const secrets = createSecrets(logger);
+      const secrets = createSecrets(logger, SECRETS_PATH);
       let accessToken, invocationId;
       if (data.sfContext) {
         accessToken = data.sfContext.accessToken;
@@ -201,8 +201,12 @@ function createUser(userContext: any): User {
  * @param logger -- logger to use in case of secret load errors
  * @return secrets loader/cache
  */
-function createSecrets(logger: Logger): Secrets {
-    return new Secrets(logger);
+function createSecrets(logger: Logger, basePath: string): Secrets {
+    if (basePath) {
+      return new Secrets(logger, basePath);
+    } else {
+      return new Secrets(logger);
+    }
 }
 
 /**
