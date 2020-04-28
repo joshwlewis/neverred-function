@@ -1,6 +1,6 @@
 import * as http from 'http';
 import * as url from 'url';
-import { BinaryHTTPReceiver, StructuredHTTPReceiver } from 'cloudevents-sdk/v1';
+import { BinaryHTTPReceiver, StructuredHTTPReceiver } from 'cloudevents-sdk/v03';
 import { LoggerLevel } from '@salesforce/core';
 import {
     ConnectionConfig,
@@ -27,35 +27,46 @@ const { DEBUG } = process.env;
    */
 export function invoke(targetFn: Function): void {
   const server = http.createServer((req, res) => {
-    const reqId = [].concat(req.headers['x-ce-id'], req.headers['x-request-id']).join(',');
-    const logger = createLogger(reqId);
-    const secrets = createSecrets(logger);
     let body = [];
     const path = url.parse(req.url).path;
     if (path !== '/' || req.method !== "POST" ) {
       res.writeHead(404);
       res.end();
-      return
+      return;
     }
     req.on('data', chunk => { body.push(chunk) });
     req.on('end', () => {
-      try {
-        const event = parseCloudevent(body.join(), req.headers);
-        let data, accessToken, invocationId;
-        if (event) {
-          data = event.getData();
-          if (data.sfContext) {
-            accessToken = data.sfContext.accessToken;
-            invocationId = data.sfContext.functionInvocationId;
-          }
-        }
-        const context = createContext(reqId, logger, secrets, accessToken, invocationId)
+      const cEvent = parseCloudevent(body.join(), req.headers);
+      if (!cEvent) {
+        res.writeHead(422);
+        res.end();
+        return;
+      }
+      const data = cEvent.getData();
+      const reqId = [].concat(cEvent.getId(), req.headers['x-request-id']).join(',');
+      const logger = createLogger(reqId);
+      const secrets = createSecrets(logger);
+      let accessToken, invocationId;
+      if (data.sfContext) {
+        accessToken = data.sfContext.accessToken;
+        invocationId = data.sfContext.functionInvocationId;
+      }
+      const sfEvent = createEvent(
+        data.data.payload,
+        req.headers,
+        cEvent
+      );
+      const context = createContext(reqId, logger, secrets, accessToken, invocationId)
 
-        const result = targetFn(data, context, logger);
-        if (result) { res.write(result); }
+      try {
+        const result = targetFn(sfEvent, context, logger);
+        if (result) {
+          res.setHeader('content-type', 'application/json');
+          res.write(JSON.stringify(result));
+        }
         res.end();
       } catch(error) {
-        logger.error({error});
+        logger.error(`Error running function: ${error}`);
         res.writeHead(500);
         res.end();
       }
@@ -72,7 +83,7 @@ function parseBinaryCloudevent(body, headers) {
   try {
     binaryParser.check(body, headers)
   } catch {
-    return
+    return;
   }
   return binaryParser.parse(body, headers);
 }
@@ -82,7 +93,7 @@ function parseStructuredCloudevent(body, headers) {
   try {
     structuredParser.check(body, headers)
   } catch {
-    return
+    return;
   }
   return structuredParser.parse(body, headers);
 }
